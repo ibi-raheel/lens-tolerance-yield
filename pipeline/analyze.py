@@ -47,6 +47,20 @@ def passes(Y5, thr):
     return (c >= thr["centre"]) & (k >= thr["corner_min"])
 
 
+def calibrated_yield(P, R, thr, draws=40, seed=0):
+    """Yield from a regression surrogate with its prediction error put back.
+
+    A surrogate predicts E[y | u], which is smoother than y, so thresholding it overstates
+    the pass rate. Adding residual vectors drawn from the VALIDATION set (jointly across
+    the five outputs, so corner-to-corner correlation is kept) gives an unbiased estimate of
+    P(y passes) when the error is roughly independent of u."""
+    rng = np.random.default_rng(seed)
+    acc = 0.0
+    for _ in range(draws):
+        acc += passes(P + R[rng.integers(0, len(R), len(P))], thr).mean()
+    return float(acc / draws)
+
+
 def summary_load():
     p = RES / "summary.json"
     return json.loads(p.read_text()) if p.exists() else {}
@@ -108,6 +122,10 @@ def yield_and_baselines(out):
                          corner_rmse=float(np.sqrt(np.mean((kB - k[ho]) ** 2))),
                          centre_rmse=float(np.sqrt(np.mean((cB - c[ho]) ** 2))),
                          pass_fail_accuracy=float((passes(YB, thr) == truth[ho]).mean())),
+        B_quadratic_calibrated=dict(
+            yield_=(yBc := calibrated_yield(YB, Y[a:b] - st.predict_B(U[a:b]), thr)),
+            error_pts=100 * (yBc - ytrue), traces=st.traces + (b - a),
+            note="Baseline B plus its own validation residuals (needs 1,000 traced modules)"),
         linear_footnote=dict(yield_=yL, error_pts=100 * (yL - ytrue),
                              corner_rmse=float(np.sqrt(np.mean((kL - k[ho]) ** 2)))),
         mean_shift=dict(corner_mean=float(k.mean()), corner_nominal=st.m0[1],
@@ -124,17 +142,21 @@ def surrogates(out, seeds=(0, 1, 2)):
     c, k = S.criteria(Y)
     rows = {}
     best = None
-    for name in ("mlp", "hybrid", "gbm", "quad_ridge"):
+    for name in ("mlp", "hybrid", "mlp_sym", "hybrid_sym", "gbm", "quad_ridge"):
         preds = []
-        for sd in (seeds if name in ("mlp", "hybrid") else (0,)):
+        for sd in (seeds if "mlp" in name or "hybrid" in name else (0,)):
             m = SU.make(name, st, seed=sd).fit(U[tr], Y[tr])
             preds.append((m, m.predict(U[va]), m.predict(U[ho])))
         # ensemble mean over seeds for the neural nets
         Pva = np.mean([p[1] for p in preds], axis=0); Pho = np.mean([p[2] for p in preds], axis=0)
         cv_, kv_ = S.criteria(Pva); ch, kh = S.criteria(Pho)
-        yv = float(passes(Pva, thr).mean()); yh = float(passes(Pho, thr).mean())
+        Rva = Y[va] - Pva
+        yraw = float(passes(Pho, thr).mean())
+        yh = calibrated_yield(Pho, Rva, thr)
         rows[name] = dict(val_corner_rmse=float(np.sqrt(np.mean((kv_ - k[va]) ** 2))),
                           heldout_yield=yh, heldout_error_pts=100 * (yh - truth[ho].mean()),
+                          heldout_yield_uncalibrated=yraw,
+                          heldout_error_pts_uncalibrated=100 * (yraw - truth[ho].mean()),
                           corner_rmse=float(np.sqrt(np.mean((kh - k[ho]) ** 2))),
                           centre_rmse=float(np.sqrt(np.mean((ch - c[ho]) ** 2))),
                           pass_fail_accuracy=float((passes(Pho, thr) == truth[ho]).mean()),
@@ -142,16 +164,22 @@ def surrogates(out, seeds=(0, 1, 2)):
         if best is None or rows[name]["val_corner_rmse"] < rows[best]["val_corner_rmse"]:
             best = name
             best_models = [p[0] for p in preds]
+            best_resid = Rva
     out["surrogates"] = dict(candidates=rows, chosen=best, chosen_by="lowest validation corner RMSE "
-                             "(held-out set never used for selection)")
+                             "(held-out set never used for selection)",
+                             yield_estimator="threshold the prediction plus validation residuals "
+                                             "(residual bootstrap, 40 draws); uncalibrated also reported")
+    np.save(RES / "val_residuals.npy", best_resid) if RES.exists() else None
     # learning curve for the chosen model and the plain MLP
     sizes = [s for s in (50, 100, 200, 400, 800, 1600, 3000) if s <= a]
     lc = {}
-    for name in sorted({best, "mlp"}):
+    for name in sorted({best, "mlp", "hybrid"}):
         ys, rm = [], []
         for s in sizes:
-            P = np.mean([SU.make(name, st, seed=sd).fit(U[:s], Y[:s]).predict(U[ho]) for sd in (0, 1)], axis=0)
-            ys.append(100 * abs(float(passes(P, thr).mean()) - truth[ho].mean()))
+            ms = [SU.make(name, st, seed=sd).fit(U[:s], Y[:s]) for sd in (0, 1)]
+            P = np.mean([m.predict(U[ho]) for m in ms], axis=0)
+            Rv = Y[va] - np.mean([m.predict(U[va]) for m in ms], axis=0)
+            ys.append(100 * abs(calibrated_yield(P, Rv, thr) - truth[ho].mean()))
             rm.append(float(np.sqrt(np.mean((S.criteria(P)[1] - k[ho]) ** 2))))
         lc[name] = dict(abs_yield_error_pts=ys, corner_rmse=rm)
     out["learning_curve"] = dict(train_sizes=sizes, curves=lc,
@@ -164,12 +192,13 @@ def surrogates(out, seeds=(0, 1, 2)):
     RES.mkdir(exist_ok=True)
     if hasattr(best_models[0], "export"):
         exp = best_models[0].export()
-        if best_models[0].base is not None:
+        exp["symmetrised_at_test_time"] = best.endswith("_sym")
+        if getattr(best_models[0], "base", None) is not None:
             exp["quadratic_stack"] = dict(y0=st.y0.tolist(), a=st.a.tolist(), b=st.b.tolist())
         exp["tolerances"] = [dict(name=t.name, limit=t.limit, unit=t.unit) for t in M.TOLS]
         exp["outputs"] = ["centre", "K++", "K-+", "K--", "K+-"]
         (RES / "surrogate_weights.json").write_text(json.dumps(exp))
-    return out, best, best_models
+    return out, best, (best_models, best_resid)
 
 
 def _ens_predict(models, U):
@@ -180,16 +209,17 @@ def _ens_predict(models, U):
 GROUPS = sorted({t.group for t in M.TOLS}, key=lambda g: [t.group for t in M.TOLS].index(g))
 
 
-def drivers(out, models, n_samp=60000, seed=11):
+def drivers(out, models_resid, n_samp=60000, seed=11):
+    models, R = models_resid
     mc, U, Y, st, thr = _data()
     rng = np.random.default_rng(seed)
     Us = M.sample_u(n_samp, rng)
-    y_all = float(passes(_ens_predict(models, Us), thr).mean())
+    y_all = calibrated_yield(_ens_predict(models, Us), R, thr, draws=4)
     rows = []
     for g in GROUPS:
         idx = [i for i, t in enumerate(M.TOLS) if t.group == g]
         Uz = Us.copy(); Uz[:, idx] = 0.0
-        yg = float(passes(_ens_predict(models, Uz), thr).mean())
+        yg = calibrated_yield(_ens_predict(models, Uz), R, thr, draws=4)
         rows.append(dict(group=g, yield_if_perfect=yg, recovered_pts=100 * (yg - y_all)))
     tot = sum(max(r["recovered_pts"], 0) for r in rows)
     for r in rows:
@@ -218,7 +248,8 @@ def drivers(out, models, n_samp=60000, seed=11):
         base_idx = np.array(meta["base_rows"])
         Ybase = Y[base_idx]
         traced = 100 * (passes(Ysp, thr).mean() - passes(Ybase, thr).mean())
-        pred = 100 * (passes(_ens_predict(models, z["U"]), thr).mean() - passes(_ens_predict(models, U[base_idx]), thr).mean())
+        pred = 100 * (calibrated_yield(_ens_predict(models, z["U"]), R, thr) -
+                      calibrated_yield(_ens_predict(models, U[base_idx]), R, thr))
         out["drivers"]["spot_check"] = dict(groups=meta["groups"], n=int(len(base_idx)),
                                             traced_recovered_pts=float(traced), surrogate_recovered_pts=float(pred))
     return out
@@ -373,14 +404,15 @@ def diagnosis(out, seed=0):
 STEPS = np.array([0.5, 0.67, 0.8, 1.0, 1.25, 1.5, 2.0])
 
 
-def reallocation(out, n_samp=40000, seed=21):
+def reallocation(out, n_samp=20000, seed=21):
     mc, U, Y, st, thr = _data()
     wide = _load("wide.npz")
     Uw, Yw = wide["U"], S.field_outputs(wide["mtf"]); Yw[~wide["ok"]] = 0
     a, b = SPLIT
-    Utr = np.vstack([U[:b], Uw]); Ytr = np.vstack([Y[:b], Yw])
+    Utr = np.vstack([U[:a], Uw]); Ytr = np.vstack([Y[:a], Yw])
     name = out["surrogates"]["chosen"]
     models = [SU.make(name, st, seed=sd).fit(Utr, Ytr) for sd in (0, 1, 2)]
+    Rv = Y[a:b] - _ens_predict(models, U[a:b])
     rng = np.random.default_rng(seed)
     base = M.sample_u(n_samp, rng)
     gidx = {g: [i for i, t in enumerate(M.TOLS) if t.group == g] for g in GROUPS}
@@ -393,7 +425,7 @@ def reallocation(out, n_samp=40000, seed=21):
         return v
 
     def yld(k):
-        return float(passes(_ens_predict(models, base * scale_vec(k)), thr).mean())
+        return calibrated_yield(_ens_predict(models, base * scale_vec(k)), Rv, thr, draws=3, seed=5)
 
     def cost(k):
         return float(np.sum(1.0 / scale_vec(k)))  # each tolerance costs ~ 1 / tolerance width
@@ -402,35 +434,31 @@ def reallocation(out, n_samp=40000, seed=21):
     y0 = yld(k); target = y0 + 0.005
     c0 = cost(k)
     hist = [dict(step="current", yield_=y0, cost=c0)]
-    for _ in range(40):
-        cands = []
+    top = [r["group"] for r in out.get("drivers", {}).get("rows", [])[:6]] or adjustable[:6]
+    for _ in range(60):
         cur_c = cost(k)
+        singles = []
         for g in adjustable:
             si = int(np.argmin(np.abs(STEPS - k[g])))
-            for d in (+1,):
-                if 0 <= si + d < len(STEPS):
-                    kk = dict(k); kk[g] = float(STEPS[si + d])
-                    cands.append(kk)
-        # also: tighten one group while loosening another
-        for g1 in adjustable:
-            s1 = int(np.argmin(np.abs(STEPS - k[g1])))
-            if s1 - 1 < 0:
-                continue
-            for g2 in adjustable:
-                if g2 == g1:
+            if si + 1 < len(STEPS):
+                kk = dict(k); kk[g] = float(STEPS[si + 1]); singles.append(kk)
+        feas = [(cost(kk), kk) for kk in singles if yld(kk) >= target]
+        if not feas:
+            pairs = []
+            for g1 in top:
+                s1 = int(np.argmin(np.abs(STEPS - k[g1])))
+                if s1 == 0:
                     continue
-                s2 = int(np.argmin(np.abs(STEPS - k[g2])))
-                if s2 + 1 < len(STEPS):
-                    kk = dict(k); kk[g1] = float(STEPS[s1 - 1]); kk[g2] = float(STEPS[s2 + 1])
-                    if cost(kk) < cur_c - 1e-9:
-                        cands.append(kk)
-        best, best_c = None, cur_c
-        for kk in cands:
-            cc = cost(kk)
-            if cc < best_c - 1e-9 and yld(kk) >= target:
-                best, best_c = kk, cc
-        if best is None:
+                for g2 in adjustable:
+                    s2 = int(np.argmin(np.abs(STEPS - k[g2])))
+                    if g2 != g1 and s2 + 1 < len(STEPS):
+                        kk = dict(k); kk[g1] = float(STEPS[s1 - 1]); kk[g2] = float(STEPS[s2 + 1])
+                        if cost(kk) < cur_c - 1e-9:
+                            pairs.append(kk)
+            feas = [(cost(kk), kk) for kk in pairs if yld(kk) >= target]
+        if not feas:
             break
+        best_c, best = min(feas, key=lambda t: t[0])
         k = best
         hist.append(dict(step=len(hist), yield_=yld(k), cost=best_c))
     yk = yld(k)
@@ -467,6 +495,41 @@ def verification(out):
     return out
 
 
+def scrub_curves(out):
+    """Section 3: sensor tilt 0..0.2 deg vs a despace error, with and without autofocus."""
+    nom = M.nominal()
+    rows = {}
+    for name, tol, values in (("sensor_tilt", "Sensor tx", np.linspace(0, 0.20, 11)),
+                              ("despace", "G12 gap", np.linspace(0, 0.012, 11))):
+        i = M.NAMES.index(tol)
+        r = dict(values=values.tolist(), unit="deg" if "tilt" in name else "mm",
+                 centre_af=[], corners_af=[], worst_af=[], centre_fixed=[], worst_fixed=[], focus_um=[])
+        for v in values:
+            u = np.zeros(M.DIM); u[i] = v / M.LIMITS[i]
+            mw = M.trace_module(u)
+            dz = mw.best_focus(center=nom["dz"])
+            for key, z_ in (("af", dz), ("fixed", nom["dz"])):
+                avg = mw.mtf_table(z_)[:, 0, :].mean(axis=1)
+                r[f"centre_{key}"].append(float(avg[0]))
+                r[f"worst_{key}"].append(float(avg[M.CORNERS].min()))
+                if key == "af":
+                    r["corners_af"].append([float(x) for x in avg[M.CORNERS]])
+            r["focus_um"].append(1e3 * (dz - nom["dz"]))
+        if name == "sensor_tilt":
+            th = np.array(values[1:]); w0 = r["worst_af"][0]
+            mean_c = np.array([np.mean(c) for c in r["corners_af"]])
+            loss_w = w0 - np.array(r["worst_af"][1:]); loss_m = mean_c[0] - mean_c[1:]
+            fit = lambda L: float(np.polyfit(np.log(th[L > 1e-6]), np.log(L[L > 1e-6]), 1)[0])
+            r["exponent_worst_corner"] = fit(loss_w)
+            r["exponent_mean_of_corners"] = fit(loss_m)
+            r["mean_corners_af"] = mean_c.tolist()
+        rows[name] = r
+    out["scrubs"] = dict(rows=rows, corner_names=[M.FIELD_NAMES[c] for c in M.CORNERS],
+                         note="sensor tilt about the x axis; despace = L1-L2 air gap error; "
+                              "'af' = autofocus re-optimised, 'fixed' = focus held at nominal")
+    return out
+
+
 def main(stages):
     out = summary_load()
     models = None
@@ -479,7 +542,9 @@ def main(stages):
             if models is None:
                 mc, U, Y, st, thr = _data()
                 name = out["surrogates"]["chosen"]
-                models = [SU.make(name, st, seed=sd).fit(U[:SPLIT[0]], Y[:SPLIT[0]]) for sd in (0, 1, 2)]
+                ms = [SU.make(name, st, seed=sd).fit(U[:SPLIT[0]], Y[:SPLIT[0]]) for sd in (0, 1, 2)]
+                Rv = Y[SPLIT[0]:SPLIT[1]] - _ens_predict(ms, U[SPLIT[0]:SPLIT[1]])
+                models = (ms, Rv)
             drivers(out, models)
         elif s == "diagnosis":
             diagnosis(out)
@@ -487,6 +552,8 @@ def main(stages):
             reallocation(out)
         elif s == "verify":
             verification(out)
+        elif s == "scrubs":
+            scrub_curves(out)
         summary_save(out)
         print("done", s, flush=True)
     return out

@@ -82,7 +82,47 @@ class QuadRidgeSurrogate:
         return self.m.predict(self.xs.transform(self.pf.transform(U)))
 
 
+class SymmetricSurrogate:
+    """Wraps a surrogate with the lens's rotational symmetry (D4): trains on all 8 images of
+    every module (exact, see pipeline/symmetry.py) and averages its prediction over the 8
+    images at test time, so the model is symmetric by construction."""
+
+    def __init__(self, inner, name, tta=True):
+        self.inner, self.name, self.tta = inner, name, tta
+        self.base = getattr(inner, "base", None)
+
+    def _orbit(self, U):
+        from . import symmetry as SY
+        tag = np.arange(5)[None].astype(float)
+        out = []
+        for m in (False, True):
+            u, t = (SY.mirror(U, tag) if m else (U, tag))
+            for _ in range(4):
+                out.append((u, t[0].astype(int)))
+                u, t = SY.rotate(u, t)
+        return out
+
+    def fit(self, U, Y):
+        from . import symmetry as SY
+        Ua, Ya = SY.augment(U, Y)
+        self.inner.fit(Ua, Ya)
+        return self
+
+    def predict(self, U):
+        if not self.tta:
+            return self.inner.predict(U)
+        acc = 0.0
+        for u, perm in self._orbit(U):
+            acc = acc + self.inner.predict(u)[:, np.argsort(perm)]
+        return acc / 8.0
+
+    def export(self):
+        return self.inner.export()
+
+
 def make(name, stack=None, seed=0):
+    if name.endswith("_sym"):
+        return SymmetricSurrogate(make(name[:-4], stack, seed), name)
     if name == "mlp":
         return MLPSurrogate(seed=seed)
     if name == "hybrid":
