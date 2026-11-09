@@ -1,0 +1,349 @@
+{
+ "first_order": {
+  "efl_mm": {
+   "rebuilt": 3.4279,
+   "published": 3.43,
+   "err_pct": -0.06
+  },
+  "fno": {
+   "rebuilt": 1.4891,
+   "published": 1.49,
+   "err_pct": -0.06
+  },
+  "ttl_mm": {
+   "rebuilt": 4.851,
+   "published": 4.85,
+   "err_pct": 0.02
+  },
+  "epd_mm": {
+   "rebuilt": 2.302,
+   "published_from_ratio": 2.294
+  },
+  "imgh_mm_published": 2.904
+ },
+ "element_focal_lengths": [
+  {
+   "element": "L1",
+   "published": 3.97,
+   "optiland": 3.97,
+   "lensmaker": 3.97,
+   "err_pct": -0.01
+  },
+  {
+   "element": "L2",
+   "published": -7.78,
+   "optiland": -7.773,
+   "lensmaker": -7.773,
+   "err_pct": -0.08
+  },
+  {
+   "element": "L3",
+   "published": 5.36,
+   "optiland": 5.366,
+   "lensmaker": 5.366,
+   "err_pct": 0.11
+  },
+  {
+   "element": "L4",
+   "published": -5.88,
+   "optiland": -5.884,
+   "lensmaker": -5.884,
+   "err_pct": 0.07
+  },
+  {
+   "element": "L5",
+   "published": 6.56,
+   "optiland": 6.558,
+   "lensmaker": 6.558,
+   "err_pct": -0.03
+  },
+  {
+   "element": "L6",
+   "published": -16.31,
+   "optiland": -16.401,
+   "lensmaker": -16.401,
+   "err_pct": 0.56
+  }
+ ],
+ "mtf_vs_diffraction": {
+  "freqs": [
+   111.6,
+   223.2
+  ],
+  "diffraction_limit": [
+   0.878,
+   0.758
+  ],
+  "nominal_centre": [
+   0.671,
+   0.55
+  ],
+  "cutoff_lpmm": 1142.9,
+  "all_under": true
+ },
+ "tilt_hand_calc": {
+  "corner_image_height_mm": 1.853,
+  "corner_y_mm": 1.31,
+  "depth_of_focus_um": 2.61,
+  "tilt_to_reach_dof_deg_diagonal": 0.081,
+  "rows": [
+   {
+    "theta_deg": 0.05,
+    "hand_calc_um": 1.14,
+    "traced_um": 1.13
+   },
+   {
+    "theta_deg": 0.1,
+    "hand_calc_um": 2.29,
+    "traced_um": 2.26
+   },
+   {
+    "theta_deg": 0.15,
+    "hand_calc_um": 3.43,
+    "traced_um": 3.39
+   }
+  ],
+  "equation": "dz = y_corner * tan(theta); DOF = +/- 2 lambda N^2"
+ },
+ "fig2_comparison": {
+  "rows": [
+   {
+    "img_ht": 0.72,
+    "field_deg": 11.61,
+    "tan_mm": 0.0162,
+    "tan_patent": 0.02,
+    "sag_mm": 0.0025,
+    "sag_patent": 0.0,
+    "distortion_pct": 2.27,
+    "distortion_patent": 1.0
+   },
+   {
+    "img_ht": 1.45,
+    "field_deg": 22.27,
+    "tan_mm": 0.0045,
+    "tan_patent": -0.01,
+    "sag_mm": -0.0145,
+    "sag_patent": -0.01,
+    "distortion_pct": 3.28,
+    "distortion_patent": 2.8
+   },
+   {
+    "img_ht": 2.17,
+    "field_deg": 31.55,
+    "tan_mm": -0.026,
+    "tan_patent": -0.06,
+    "sag_mm": -0.0266,
+    "sag_patent": -0.03,
+    "distortion_pct": 3.08,
+    "distortion_patent": 2.7
+   }
+  ],
+  "note": "Patent values read by eye from FIG. 2 (+/- 0.01 mm, +/- 0.4 %). Ours: narrow-pencil (+/-0.04 pupil) T and S foci at 587.6 nm relative to the axial pencil focus."
+ },
+ "nominal_mtf_vs_height": {
+  "img_ht_mm": [
+   0.0,
+   0.29,
+   0.581,
+   0.871,
+   1.162,
+   1.452,
+   1.743,
+   2.033,
+   2.323,
+   2.614
+  ],
+  "tan_n4": [
+   0.671,
+   0.554,
+   0.258,
+   0.223,
+   0.341,
+   0.318,
+   0.245,
+   0.216,
+   0.229,
+   0.107
+  ],
+  "sag_n4": [
+   0.671,
+   0.652,
+   0.546,
+   0.494,
+   0.565,
+   0.599,
+   0.477,
+   0.371,
+   0.464,
+   0.296
+  ],
+  "tan_n2": [
+   0.55,
+   0.254,
+   0.02,
+   0.053,
+   0.09,
+   0.047,
+   0.046,
+   0.093,
+   0.104,
+   0.028
+  ],
+  "sag_n2": [
+   0.55,
+   0.476,
+   0.266,
+   0.278,
+   0.396,
+   0.462,
+   0.26,
+   0.086,
+   0.297,
+   0.169
+  ],
+  "focus_um": -1.64
+ },
+ "nominal_eval_fields": {
+  "names": [
+   "C",
+   "M+x",
+   "M-x",
+   "M+y",
+   "M-y",
+   "K++",
+   "K-+",
+   "K--",
+   "K+-"
+  ],
+  "field_deg": [
+   [
+    0.0,
+    0.0
+   ],
+   [
+    19.75,
+    0.0
+   ],
+   [
+    -19.75,
+    0.0
+   ],
+   [
+    0.0,
+    19.75
+   ],
+   [
+    0.0,
+    -19.75
+   ],
+   [
+    20.32727810146816,
+    20.32727810146816
+   ],
+   [
+    -20.32727810146816,
+    20.32727810146816
+   ],
+   [
+    -20.32727810146816,
+    -20.32727810146816
+   ],
+   [
+    20.32727810146816,
+    -20.32727810146816
+   ]
+  ],
+  "mtf": [
+   [
+    [
+     0.6713,
+     0.6713
+    ],
+    [
+     0.5502,
+     0.5502
+    ]
+   ],
+   [
+    [
+     0.3471,
+     0.5994
+    ],
+    [
+     0.0978,
+     0.4569
+    ]
+   ],
+   [
+    [
+     0.3471,
+     0.5994
+    ],
+    [
+     0.0978,
+     0.4569
+    ]
+   ],
+   [
+    [
+     0.3471,
+     0.5994
+    ],
+    [
+     0.0978,
+     0.4569
+    ]
+   ],
+   [
+    [
+     0.3471,
+     0.5994
+    ],
+    [
+     0.0978,
+     0.4569
+    ]
+   ],
+   [
+    [
+     0.2319,
+     0.4227
+    ],
+    [
+     0.0616,
+     0.1599
+    ]
+   ],
+   [
+    [
+     0.2319,
+     0.4227
+    ],
+    [
+     0.0616,
+     0.1599
+    ]
+   ],
+   [
+    [
+     0.2319,
+     0.4227
+    ],
+    [
+     0.0616,
+     0.1599
+    ]
+   ],
+   [
+    [
+     0.2319,
+     0.4227
+    ],
+    [
+     0.0616,
+     0.1599
+    ]
+   ]
+  ]
+ }
+}
