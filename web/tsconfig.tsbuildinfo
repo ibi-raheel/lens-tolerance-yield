@@ -1,1 +1,1 @@
-{"root":["./src/main.tsx"],"version":"5.6.3"}
+{"root":["./src/app.tsx","./src/data.ts","./src/main.tsx","./src/ui.tsx","./src/sections/s0cover.tsx","./src/sections/s1lens.tsx","./src/sections/s2focus.tsx","./src/sections/s3population.tsx","./src/sections/s4drivers.tsx","./src/sections/s5ai.tsx","./src/sections/s6diagnosis.tsx","./src/sections/s7budget.tsx"],"version":"5.6.3"}
