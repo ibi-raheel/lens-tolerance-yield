@@ -83,7 +83,7 @@ export type Figures = {
 export type Data = { summary: Summary; validation: Validation; figures: Figures };
 
 export async function loadData(): Promise<Data> {
-  const get = (f: string) => fetch(`/data/${f}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${f}: ${r.status}`))));
+  const get = (f: string) => fetch(`${import.meta.env.BASE_URL}data/${f}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${f}: ${r.status}`))));
   const [summary, validation, figures] = await Promise.all([get("summary.json"), get("validation.json"), get("figures.json")]);
   return { summary, validation, figures };
 }
