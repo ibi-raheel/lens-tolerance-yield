@@ -54,3 +54,19 @@ def augment(U, Y):
             Us.append(u); Ys.append(y)
             u, y = rotate(u, y)
     return np.vstack(Us), np.vstack(Ys)
+
+
+# full 9-field tables [C, M+x, M-x, M+y, M-y, K++, K-+, K--, K+-]: new[i] = old[perm[i]]
+FIELD_ROT = np.array([0, 4, 3, 1, 2, 8, 5, 6, 7])
+FIELD_MIR = np.array([0, 2, 1, 3, 4, 6, 5, 8, 7])
+
+
+def augment_tables(T, labels):
+    """8 symmetry images of MTF tables T[n, 9, ...] (culprit labels are invariant)."""
+    Ts, Ls = [], []
+    for m in (False, True):
+        t = T[:, FIELD_MIR] if m else T
+        for _ in range(4):
+            Ts.append(t); Ls.append(labels)
+            t = t[:, FIELD_ROT]
+    return np.concatenate(Ts), np.concatenate(Ls)

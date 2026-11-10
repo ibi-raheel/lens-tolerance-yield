@@ -28,3 +28,11 @@ def test_augment_is_the_full_orbit():
     for _ in range(4):
         r4, _ = SY.rotate(r4)
     assert np.allclose(r4, u)  # four quarter turns = identity
+
+
+def test_nine_field_permutations_match_trace():
+    u = M.sample_u(1, np.random.default_rng(12))
+    t = M.simulate(u[0])["mtf"]
+    ur, _ = SY.rotate(u); um, _ = SY.mirror(u)
+    assert np.max(np.abs(t[SY.FIELD_ROT] - M.simulate(ur[0])["mtf"])) < 1e-2
+    assert np.max(np.abs(t[SY.FIELD_MIR] - M.simulate(um[0])["mtf"])) < 1e-2

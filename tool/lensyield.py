@@ -58,8 +58,8 @@ def cmd_run(a):
     p = passes(Y, thr)
     yA = st.yield_A(thr)
     yB = float(passes(st.predict_B(Umc), thr).mean())
-    # surrogate (physics prior + neural net) for drivers and reallocation
-    model = SU.make("hybrid", st).fit(Umc, Y)
+    # surrogate (physics prior + neural net, trained on the lens symmetry) for drivers and reallocation
+    model = SU.make("hybrid_sym", st).fit(Umc, Y)  # quadratic stack + NN, symmetry-trained
     rng = np.random.default_rng(1)
     base = M.sample_u(30000, rng)
     groups = list(dict.fromkeys(t.group for t in M.TOLS))

@@ -241,21 +241,26 @@ def drivers(out, models_resid, n_samp=60000, seed=11):
     out["drivers"] = dict(yield_all_surrogate=y_all, rows=rows, sobol_corner=sob,
                           method="yield recovered if the group were perfect (others at current tolerance), "
                                  f"surrogate on {n_samp} sampled modules; share = recovered / sum of recovered")
-    spot = RUNS / "spot.npz"
-    if spot.exists():
-        z = _load("spot.npz"); meta = json.loads((RUNS / "spot_meta.json").read_text())
+    checks = []
+    for spot in sorted(RUNS.glob("spot*.npz")):
+        nm = spot.stem
+        z = _load(spot.name); meta = json.loads((RUNS / f"{nm}_meta.json").read_text())
         Ysp = S.field_outputs(z["mtf"]); Ysp[~z["ok"]] = 0
         base_idx = np.array(meta["base_rows"])
-        Ybase = Y[base_idx]
-        traced = 100 * (passes(Ysp, thr).mean() - passes(Ybase, thr).mean())
+        traced = 100 * (passes(Ysp, thr).mean() - passes(Y[base_idx], thr).mean())
         pred = 100 * (calibrated_yield(_ens_predict(models, z["U"]), R, thr) -
                       calibrated_yield(_ens_predict(models, U[base_idx]), R, thr))
-        out["drivers"]["spot_check"] = dict(groups=meta["groups"], n=int(len(base_idx)),
-                                            traced_recovered_pts=float(traced), surrogate_recovered_pts=float(pred))
+        n_ = len(base_idx)
+        p1, p0 = passes(Ysp, thr).mean(), passes(Y[base_idx], thr).mean()
+        checks.append(dict(groups=meta["groups"], n=int(n_), traced_recovered_pts=float(traced),
+                           surrogate_recovered_pts=float(pred),
+                           traced_se_pts=float(100 * math.sqrt((p1 * (1 - p1) + p0 * (1 - p0)) / n_))))
+    if checks:
+        out["drivers"]["spot_checks"] = checks
     return out
 
 
-def make_spot(groups, n=500):
+def make_spot(groups, n=500, name="spot"):
     """Re-trace n held-out modules with the given groups set perfect (direct ray trace)."""
     mc, U, Y, st, thr = _data()
     a, b = SPLIT
@@ -264,15 +269,17 @@ def make_spot(groups, n=500):
     for g in groups:
         idx = [i for i, t in enumerate(M.TOLS) if t.group == g]
         Uz[:, idx] = 0.0
-    (RUNS / "spot_meta.json").write_text(json.dumps(dict(groups=groups, base_rows=rows)))
+    (RUNS / f"{name}_meta.json").write_text(json.dumps(dict(groups=groups, base_rows=rows)))
     from .mc import run_batch
-    run_batch(Uz, M.LIMITS, RUNS / "spot.npz")
+    run_batch(Uz, M.LIMITS, RUNS / f"{name}.npz")
 
 
 # ---------------------------------------------------------------------------------------
 def diagnosis(out, seed=0):
-    from sklearn.model_selection import StratifiedKFold, cross_val_predict
+    from sklearn.base import clone
+    from sklearn.model_selection import StratifiedKFold
     from sklearn.neural_network import MLPClassifier
+    from . import symmetry as SY
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
 
@@ -317,7 +324,16 @@ def diagnosis(out, seed=0):
                                                         n_iter_no_change=40, random_state=seed))
     # merge look-alike culprits: cross-validated confusion on the TRAINING set only
     groups = sorted(set(labels))
-    cvp = cross_val_predict(clf, X[tr], labels[tr], cv=StratifiedKFold(5, shuffle=True, random_state=0))
+    T = z["mtf"]
+
+    def fit_aug(model, rows, y):
+        Ta, ya = SY.augment_tables(T[rows], y)
+        return model.fit(Ta.reshape(len(Ta), -1) - nom, ya)
+
+    cvp = np.empty(len(tr), dtype=object)
+    for ftr, fva in StratifiedKFold(5, shuffle=True, random_state=0).split(tr, labels[tr]):
+        m_ = fit_aug(clone(clf), tr[ftr], labels[tr][ftr])
+        cvp[fva] = m_.predict(X[tr[fva]])
     merge = {g: g for g in groups}
 
     def find(g):
@@ -351,7 +367,7 @@ def diagnosis(out, seed=0):
     label_name = {r: " / ".join(sorted(v)) for r, v in names.items()}
     ym = np.array([label_name[final[g]] for g in labels])
 
-    clf.fit(X[tr], ym[tr])
+    fit_aug(clf, tr, ym[tr])
     classes = list(clf.classes_)
     proba = clf.predict_proba(X[te])
     order = np.argsort(-proba, axis=1)
@@ -385,7 +401,8 @@ def diagnosis(out, seed=0):
         lookup=dict(top1=float(np.mean(look1)), top2=float(np.mean(look2)), confusion=confusion(look_pred),
                     library_traces=int(len(Sg) + 1)),
         chance_top1=float(max(counts.values()) / max(1, len(te_fail))),
-        method="classifier: MLP on the 36 through-field MTF changes (9 fields x 2 freqs x T/S); "
+        method="classifier: MLP on the 36 through-field MTF changes (9 fields x 2 freqs x T/S), "
+               "trained on the 8 symmetry images of every training module; "
                "lookup: least-squares fit to a traced signature library (each culprit at 3x its limit, "
                "8 directions for x/y pairs), best residual wins")
     # an example failing module for the dashboard
@@ -490,6 +507,10 @@ def verification(out):
         current_budget_yield=float(cur.mean()), current_budget_se=se(cur.mean(), len(cur)), n_current=int(len(cur)),
         difference_pts=100 * float(pv.mean() - cur.mean()),
         difference_se_pts=100 * math.sqrt(se(pv.mean(), len(pv)) ** 2 + se(cur.mean(), len(cur)) ** 2),
+        current_full_population_yield=float((allp := passes(Y, thr)).mean()),
+        current_full_population_se=se(allp.mean(), len(allp)), n_current_full=int(len(allp)),
+        difference_vs_full_pts=100 * float(pv.mean() - allp.mean()),
+        difference_vs_full_se_pts=100 * math.sqrt(se(pv.mean(), len(pv)) ** 2 + se(allp.mean(), len(allp)) ** 2),
         note="fresh, independent ray-traced Monte Carlo (seed 3) on the reallocated budget vs the "
              "held-out modules of the current budget")
     return out
@@ -530,6 +551,24 @@ def scrub_curves(out):
     return out
 
 
+def export(out):
+    """Copy the static results the web page reads, and write the CLI example input."""
+    import shutil
+    web = ROOT / "web" / "public" / "data"
+    web.mkdir(parents=True, exist_ok=True)
+    for f in ("summary.json", "validation.json", "surrogate_weights.json", "budget_reallocated.json"):
+        if (RES / f).exists():
+            shutil.copy(RES / f, web / f)
+    ex = out.get("diagnosis", {}).get("example")
+    if ex:
+        rows = ["field,freq_lpmm,T,S"]
+        for i, name in enumerate(M.FIELD_NAMES):
+            for j, nu in enumerate(M.FREQS):
+                rows.append(f"{name},{nu:.1f},{ex['mtf'][i][j][0]:.4f},{ex['mtf'][i][j][1]:.4f}")
+        (ROOT / "tool" / "example_failing_module.csv").write_text("\n".join(rows) + "\n")
+    return out
+
+
 def main(stages):
     out = summary_load()
     models = None
@@ -554,6 +593,8 @@ def main(stages):
             verification(out)
         elif s == "scrubs":
             scrub_curves(out)
+        elif s == "export":
+            export(out)
         summary_save(out)
         print("done", s, flush=True)
     return out
