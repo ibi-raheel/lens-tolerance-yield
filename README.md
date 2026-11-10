@@ -35,6 +35,8 @@ cd web && npm install && npm run dev
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -I -m pytest -q tests        # tests
 PYTHON=.venv/bin/python ./run_pipeline.sh     # full pipeline, about 2.5 h on 4 cores
+# or re-run only the analysis on the committed ray-traced runs in data/runs/ (minutes)
+.venv/bin/python -I -c "import sys; sys.path.insert(0, '.'); from pipeline import analyze as A; A.main(['yield','surrogates','drivers','diagnosis','scrubs','verify','export'])"
 ```
 
 ## Data
