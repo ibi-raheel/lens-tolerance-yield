@@ -58,13 +58,13 @@ Two trained models, each scored only on modules it never saw.
 | Test (2,000 held-out modules) | Trained surrogate | Second-order stack | Verdict |
 |---|---|---|---|
 | Worst-corner MTF error (RMSE) | **0.0010** | 0.0124 | **Win.** 13× smaller (95% interval 11–14×) |
-| Pass/fail call accuracy | **99.4%** (12 wrong) | 88.0% (239 wrong) | **Win.** +10 to +13 pts |
+| Pass/fail call accuracy | **99.4%** (12 wrong) | 88.0% (240 wrong) | **Win.** +10 to +13 pts |
 | Population yield (truth 80.4%) | 80.4% | 75.0% | Surrogate is right, but see the next row |
 | Population yield vs counting the 3,000 traced training modules | 80.4% | 79.0% ± 0.7 (counting) | **Tie.** Both within sampling noise of the truth |
 
 For the yield number alone, the surrogate is no better than counting traced modules. Its measured win is per module: it scores a budget that was never traced, which is what the driver ranking and the reallocation need. A gradient-boosted model was also tried and lost to the stack on yield (88.2%, +7.8 pts).
 
-<img src="docs/img/ai-vs-stack.png" alt="Predicted against traced worst-corner MTF: the second-order stack scatters widely with 239 wrong pass/fail calls; the trained surrogate sits on the diagonal with 12" width="100%">
+<img src="docs/img/ai-vs-stack.png" alt="Predicted against traced worst-corner MTF: the second-order stack scatters widely with 239 wrong worst-corner calls; the trained surrogate sits on the diagonal with 12" width="100%">
 
 **The diagnosis classifier** reads a failing module's through-field MTF (9 fields × 2 frequencies × tangential/sagittal) and names the culprit part.
 
@@ -119,7 +119,7 @@ python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
 PYTHON=.venv/bin/python ./run_pipeline.sh
 
 # or re-run only the analysis on the committed ray-traced runs in data/runs/ (minutes)
-.venv/bin/python -I -c "import sys; sys.path.insert(0, '.'); from pipeline import analyze as A; A.main(['yield','surrogates','drivers','diagnosis','scrubs','verify','export'])"
+.venv/bin/python -I -c "import sys; sys.path.insert(0, '.'); from pipeline import analyze as A; A.main(['yield','surrogates','drivers','diagnosis','scrubs','verify','intervals','export'])"
 ```
 
 **The `lensyield` tool:**
