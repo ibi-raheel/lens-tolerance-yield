@@ -114,6 +114,19 @@ def verify(budget_path, seed=3, n=3000, name="verify"):
     return run_batch(U, limits, RUNS / f"{name}.npz")
 
 
+def verify_paired(budget_path, name="verify_paired"):
+    """Common-random-numbers check of the reallocated budget: re-trace the 2,000 held-out
+    modules of the main run (rows 4000-6000, never used to train or select anything) with the
+    SAME draws in units of the limit, but the new limits. The paired difference against the
+    current-budget traces of those same rows cancels most of the sampling noise."""
+    from pipeline import module as M
+    b = json.loads(Path(budget_path).read_text())
+    limits = np.array([b["limits"][t.name] for t in M.TOLS])
+    z = np.load(RUNS / "mc_main.npz")
+    U = z["U"][4000:6000]
+    return run_batch(U, limits, RUNS / f"{name}.npz")
+
+
 def scrubs():
     """Section 3 curves: sensor tilt 0..0.2 deg and L-gap despace, with autofocus."""
     from pipeline import module as M
@@ -167,7 +180,8 @@ def signature_library():
 def dispatch(argv):
     what = argv[0]
     {"main": main_mc, "sens": sensitivity_runs, "diag": diag_set, "scrubs": scrubs, "wide": wide_set, "sig": signature_library,
-     "verify": lambda: verify(argv[1], name=argv[2] if len(argv) > 2 else "verify")}[what]()
+     "verify": lambda: verify(argv[1], name=argv[2] if len(argv) > 2 else "verify"),
+     "verify_paired": lambda: verify_paired(argv[1])}[what]()
 
 
 if __name__ == "__main__":

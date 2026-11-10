@@ -8,7 +8,8 @@
   "fno": {
    "rebuilt": 1.4891,
    "published": 1.49,
-   "err_pct": -0.06
+   "err_pct": -0.06,
+   "note": "not an independent check: the aperture is set as EPD = published EFL / published F#, so this equals the EFL ratio. The independent aperture check is epd_mm against the patent's EPD/ImgH ratio."
   },
   "ttl_mm": {
    "rebuilt": 4.851,
@@ -114,8 +115,9 @@
     "tan_patent": 0.02,
     "sag_mm": 0.0025,
     "sag_patent": 0.0,
-    "distortion_pct": 2.27,
-    "distortion_patent": 1.0
+    "distortion_pct": 1.63,
+    "distortion_patent": 1.0,
+    "distortion_pct_vs_efl_tan": 2.27
    },
    {
     "img_ht": 1.45,
@@ -124,8 +126,9 @@
     "tan_patent": -0.01,
     "sag_mm": -0.0145,
     "sag_patent": -0.01,
-    "distortion_pct": 3.28,
-    "distortion_patent": 2.8
+    "distortion_pct": 2.63,
+    "distortion_patent": 2.8,
+    "distortion_pct_vs_efl_tan": 3.28
    },
    {
     "img_ht": 2.17,
@@ -134,11 +137,12 @@
     "tan_patent": -0.06,
     "sag_mm": -0.0266,
     "sag_patent": -0.03,
-    "distortion_pct": 3.08,
-    "distortion_patent": 2.7
+    "distortion_pct": 2.44,
+    "distortion_patent": 2.7,
+    "distortion_pct_vs_efl_tan": 3.08
    }
   ],
-  "note": "Patent values read by eye from FIG. 2 (+/- 0.01 mm, +/- 0.4 %). Ours: narrow-pencil (+/-0.04 pupil) T and S foci at 587.6 nm relative to the axial pencil focus."
+  "note": "Patent values read by eye from FIG. 2 (+/- 0.01 mm, +/- 0.4 %). Ours: narrow-pencil (+/-0.04 pupil) T and S foci at 587.6 nm relative to the axial pencil focus. Distortion is referenced to the paraxial chief-ray height on the image surface (Zemax F-Tan(theta)); distortion_pct_vs_efl_tan uses EFL*tan(theta) and carries a +0.63 % offset from the 17 um defocus of the patent's image plane."
  },
  "nominal_mtf_vs_height": {
   "img_ht_mm": [

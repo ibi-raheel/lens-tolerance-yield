@@ -3583,6 +3583,22 @@
    "library_traces": 143
   },
   "chance_top1": 0.13360323886639677,
+  "intervals": {
+   "model_top1": [
+    0.6639676113360324,
+    0.7732793522267206
+   ],
+   "lookup_top1": [
+    0.4331983805668016,
+    0.5546558704453441
+   ],
+   "top1_difference": [
+    0.16194331983805668,
+    0.291497975708502
+   ],
+   "n": 247,
+   "method": "paired bootstrap over held-out failing modules, 4,000 resamples, 95%"
+  },
   "method": "classifier: MLP on the 36 through-field MTF changes (9 fields x 2 freqs x T/S), trained on the 8 symmetry images of every training module; lookup: least-squares fit to a traced signature library (each culprit at 3x its limit, 8 directions for x/y pairs), best residual wins",
   "example": {
    "true": "L1 thickness",
@@ -4353,6 +4369,68 @@
   "n_current_full": 6000,
   "difference_vs_full_pts": 0.03333333333332966,
   "difference_vs_full_se_pts": 0.907210417015116,
-  "note": "fresh, independent ray-traced Monte Carlo (seed 3) on the reallocated budget vs the held-out modules of the current budget"
+  "note": "fresh, independent ray-traced Monte Carlo (seed 3) on the reallocated budget vs the held-out modules of the current budget",
+  "paired": {
+   "n": 2000,
+   "new_budget_yield": 0.7955,
+   "current_budget_yield": 0.804,
+   "difference_pts": -0.8500000000000001,
+   "difference_se_pts": 0.676289460007221,
+   "difference_ci95_pts": [
+    -2.1755273416141527,
+    0.475527341614153
+   ],
+   "flipped_to_pass": 83,
+   "flipped_to_fail": 100,
+   "untraceable": 0,
+   "note": "common random numbers: the 2,000 held-out draws of the main run (never used to train or select) re-traced with the reallocated limits; paired difference vs their current-budget traces"
+  }
+ },
+ "surrogate_intervals": {
+  "model": "hybrid_sym",
+  "n_heldout": 2000,
+  "corner_rmse": {
+   "surrogate": 0.00098992118748339,
+   "B": 0.012418095560797409,
+   "surrogate_ci": [
+    0.0008618413210587805,
+    0.0011302749063342755
+   ],
+   "B_ci": [
+    0.011942952261827004,
+    0.012887133406074065
+   ],
+   "ratio_B_over_surrogate_ci": [
+    11.143579598934574,
+    14.19107079239798
+   ]
+  },
+  "pass_fail_accuracy": {
+   "surrogate": 0.994,
+   "B": 0.88,
+   "surrogate_ci": [
+    0.9905,
+    0.997
+   ],
+   "B_ci": [
+    0.8655,
+    0.894
+   ],
+   "difference_ci": [
+    0.1005,
+    0.1285
+   ]
+  },
+  "yield_": {
+   "heldout_traced": 0.804,
+   "heldout_traced_se": 0.00887648579112252,
+   "surrogate_on_same_modules": 0.8042499999999999,
+   "counting_3000_training_traces": 0.7896666666666666,
+   "counting_se": 0.007440726268813242,
+   "counting_minus_heldout_pts": -1.433333333333342,
+   "counting_minus_heldout_se_pts": 1.1582590703612359
+  },
+  "reading": "For the population yield alone, counting the 3,000 traced training modules is as good as the surrogate (both within sampling noise of the held-out truth). The surrogate's measured win is per module: worst-corner error and pass/fail calls on modules it never saw, which is what lets it score untraced budgets (drivers, reallocation).",
+  "method": "paired bootstrap over the 2,000 held-out modules, 4,000 resamples, 95%"
  }
 }

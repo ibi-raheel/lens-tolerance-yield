@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs a Monte Carlo stage. Python runs isolated (-I); the repo root is put on sys.path explicitly.
-# Usage: ./run_mc.sh main|sens|diag|scrubs|verify <budget.json> <name>
+# Usage: ./run_mc.sh main|sens|diag|scrubs|wide|sig|verify <budget.json> <name>|verify_paired <budget.json>
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 PY="${PYTHON:-python3}"

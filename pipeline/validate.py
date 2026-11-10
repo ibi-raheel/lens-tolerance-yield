@@ -113,7 +113,10 @@ def run():
     imgh_pub = pub["ttl_mm"] / pub["ttl_over_imgh"]
     v["first_order"] = dict(
         efl_mm=dict(rebuilt=round(efl, 4), published=pub["efl_mm"], err_pct=round(100 * (efl / pub["efl_mm"] - 1), 2)),
-        fno=dict(rebuilt=round(fno, 4), published=pub["fno"], err_pct=round(100 * (fno / pub["fno"] - 1), 2)),
+        fno=dict(rebuilt=round(fno, 4), published=pub["fno"], err_pct=round(100 * (fno / pub["fno"] - 1), 2),
+                 note="not an independent check: the aperture is set as EPD = published EFL / published F#, "
+                      "so this equals the EFL ratio. The independent aperture check is epd_mm against the "
+                      "patent's EPD/ImgH ratio."),
         ttl_mm=dict(rebuilt=round(ttl, 4), published=pub["ttl_mm"], err_pct=round(100 * (ttl / pub["ttl_mm"] - 1), 2)),
         epd_mm=dict(rebuilt=round(float(op.paraxial.EPD()), 4),
                     published_from_ratio=round(pub["epd_over_imgh"] * imgh_pub, 3)),
@@ -181,17 +184,29 @@ def run():
     opm = build_optic(rx, fields=[(0.0, 0.0), (0.0, M.HFOV)], wavelengths=(0.5876,))
     opm.set_ray_aiming("robust")
     t0, s0 = pencil_focus(opm, 1e-6)
+    # Distortion reference (Zemax F-Tan(theta) convention): the PARAXIAL chief-ray height on
+    # the actual image surface. The patent's image plane sits ~17 um behind paraxial focus,
+    # so f*tan(theta) alone leaves a constant +0.63 % offset that does not vanish as theta -> 0.
+    yc, _uc = opm.paraxial.chief_ray()
+    y_par_max = abs(float(np.ravel(be.to_numpy(yc))[-1]))
+    ref_scale = y_par_max / math.tan(math.radians(M.HFOV))      # mm per unit tan(theta)
     curves = []
     for k, hh in enumerate(FIG2["img_ht"]):
         tt, ss = pencil_focus(opm, float(want[k]) / M.HFOV)
-        dist = 100 * (np.interp(want[k], angs, ys) / (efl * math.tan(math.radians(want[k]))) - 1)
+        y_real = np.interp(want[k], angs, ys)
+        dist = 100 * (y_real / (ref_scale * math.tan(math.radians(want[k]))) - 1)
+        dist_f = 100 * (y_real / (efl * math.tan(math.radians(want[k]))) - 1)
         curves.append(dict(img_ht=hh, field_deg=round(float(want[k]), 2),
                            tan_mm=round(tt - t0, 4), tan_patent=FIG2["tan_mm"][k],
                            sag_mm=round(ss - s0, 4), sag_patent=FIG2["sag_mm"][k],
-                           distortion_pct=round(float(dist), 2), distortion_patent=FIG2["distortion_pct"][k]))
+                           distortion_pct=round(float(dist), 2), distortion_patent=FIG2["distortion_pct"][k],
+                           distortion_pct_vs_efl_tan=round(float(dist_f), 2)))
     v["fig2_comparison"] = dict(rows=curves, note="Patent values read by eye from FIG. 2 "
                                 f"(+/- {FIG2['read_uncertainty_mm']} mm, +/- {FIG2['read_uncertainty_pct']} %). "
-                                "Ours: narrow-pencil (+/-0.04 pupil) T and S foci at 587.6 nm relative to the axial pencil focus.")
+                                "Ours: narrow-pencil (+/-0.04 pupil) T and S foci at 587.6 nm relative to the axial pencil focus. "
+                                 "Distortion is referenced to the paraxial chief-ray height on the image surface (Zemax "
+                                 "F-Tan(theta)); distortion_pct_vs_efl_tan uses EFL*tan(theta) and carries a +0.63 % "
+                                 "offset from the 17 um defocus of the patent's image plane.")
 
     # nominal MTF vs image height (for the brochure chart)
     hts = np.linspace(0, 0.9, 10)

@@ -52,3 +52,21 @@ def test_mc_sampling_is_seed_reproducible_and_truncated():
 def test_simulation_is_deterministic():
     u = M.sample_u(1, np.random.default_rng(3))[0]
     assert np.array_equal(M.simulate(u)["mtf"], M.simulate(u)["mtf"])
+
+
+def test_monte_carlo_sets_share_no_draws():
+    """Training/validation/held-out are disjoint slices of one run; the diagnosis, wide and
+    verification runs use their own seeds. No draw (in units of the limit) repeats across them."""
+    from pathlib import Path
+    runs = Path(__file__).resolve().parent.parent / "data" / "runs"
+    names = ["mc_main", "diag", "wide", "verify"]
+    if not all((runs / f"{n}.npz").exists() for n in names):
+        pytest.skip("raw runs not present")
+    keys = {}
+    for n in names:
+        U = np.load(runs / f"{n}.npz")["U"]
+        if n == "wide":
+            U = U / 2.0                     # wide design = 2x the same sampler
+        for row in np.round(U[:, :5], 9):
+            keys.setdefault(row.tobytes(), set()).add(n)
+    assert all(len(v) == 1 for v in keys.values())

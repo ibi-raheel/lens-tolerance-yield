@@ -16,4 +16,5 @@ run "from pipeline import analyze as A; A.main(['yield','surrogates','drivers','
 run "from pipeline import analyze as A, module as M; import json; o=json.load(open(sys.argv[1]+'/results/summary.json')); A.make_spot([o['drivers']['rows'][0]['group']], name='spot1'); A.make_spot([r['group'] for r in o['drivers']['rows'][:3]], name='spot3')"
 run "from pipeline import analyze as A; A.main(['drivers','realloc'])"
 "$ROOT/run_mc.sh" verify "$ROOT/results/budget_reallocated.json" verify   # fresh MC, new budget
-run "from pipeline import analyze as A; A.main(['verify','export'])"
+"$ROOT/run_mc.sh" verify_paired "$ROOT/results/budget_reallocated.json"           # same held-out draws, new budget
+run "from pipeline import analyze as A; A.main(['verify','intervals','export'])"

@@ -54,7 +54,7 @@ Each perturbation corresponds to a drawing callout. Each limit is a ±value read
 
 **Sources for the sizes.** S. Nam, *Tolerance analysis using Zemax, the case for the small optics* (Univ. of Arizona OPTI 521 report): for a three-element cell-phone lens it uses 0.010 mm thickness, 0.05° element tilt and 0.010 mm element decenter as perturbations, and it calls these lenses "very tight and challenging". This design is F/1.49 with 1.12 µm pixels against that report's 45 lp/mm criterion, so the decenter, thickness and gap limits used here are 3–5× tighter, and tilts are derived from flatness over diameter as above. These are stated assumptions, not a supplier's capability data. The first job on a real line is to replace them with measured part distributions (SOLUTION.md).
 
-**Compensator.** Image distance (the VCM/focus). Per module it maximises the mean over the nine fields of (T+S)/2 MTF at Nyquist/4. A 2 µm grid over ±30 µm around nominal is refined by a parabola through the best three points.
+**Compensator.** Image distance (the VCM/focus). Per module it maximises the mean over the nine fields of (T+S)/2 MTF at Nyquist/4. A 2 µm grid over ±30 µm around nominal is refined by a parabola through the best three points. The search window never clips: the largest focus move in any run is 21.7 µm (wide design), 12.0 µm in the main run.
 
 ## 4. Spec (fixed before any Monte Carlo was run)
 
@@ -75,7 +75,8 @@ Nominal: centre 0.671, worst corner 0.327 (tangential 0.232 / sagittal 0.423 at 
 | Signature library | `pipeline/mc.py sig` | 143 | Lookup baseline |
 | Wide design | `pipeline/mc.py wide` | 2,000 | Reallocation surrogate coverage to 2× limits |
 | Spot checks | `analyze.make_spot` | 2 × 500 | Direct-trace check of the driver ranking |
-| Verification | `pipeline/mc.py verify` | 3,000 | Fresh Monte Carlo on the reallocated budget |
+| Verification | `pipeline/mc.py verify` | 3,000 | Fresh Monte Carlo on the reallocated budget (seed 3) |
+| Paired verification | `pipeline/mc.py verify_paired` | 2,000 | The 2,000 held-out draws re-traced with the reallocated limits (common random numbers) |
 
 Timing: a pilot of 20 modules took 1.55 s per module on one core. With 4 niced workers the throughput was about 115 modules per minute, so 6,000 modules took 52 minutes. That sized the main run at 6,000: the held-out yield standard error is 0.9 points and the full-population standard error 0.5 points.
 
@@ -99,16 +100,18 @@ Timing: a pilot of 20 modules took 1.55 s per module on one core. With 4 niced w
 
 ## 6. Validation
 
-All values from `results/validation.json` and `tests/` (27 tests pass).
+All values from `results/validation.json` and `tests/` (30 tests pass).
 
 **First order vs the patent.**
 
 | Quantity | Rebuilt | Published | Error |
 |---|---|---|---|
 | EFL (mm) | 3.428 | 3.43 | −0.06% |
-| F-number | 1.489 | 1.49 | −0.06% |
+| F-number (not independent, see below) | 1.489 | 1.49 | −0.06% |
 | TTL (mm) | 4.851 | 4.85 | +0.02% |
 | EPD (mm) | 2.302 | 2.294 (from EPD/ImgH = 0.79) | +0.3% |
+
+The aperture is set as EPD = published EFL / published F-number, so the rebuilt F-number only repeats the EFL check. The independent aperture check is the EPD row: the patent's own EPD/ImgH ratio implies 2.294 mm against the 2.302 mm used. EFL and TTL were also re-derived with a separate 20-line paraxial y-nu trace of the prescription (3.4279 mm, 4.851 mm).
 
 **Element focal lengths** (Optiland paraxial on the isolated element; the thick-lens lensmaker equation 1/f = (n−1)[1/R₁ − 1/R₂ + (n−1)t/(nR₁R₂)] agrees to < 0.1%):
 
@@ -118,7 +121,7 @@ All values from `results/validation.json` and `tests/` (27 tests pass).
 | Rebuilt (mm) | 3.970 | −7.773 | 5.366 | −5.884 | 6.558 | −16.401 |
 | Error | −0.01% | −0.08% | +0.11% | +0.07% | −0.03% | +0.56% |
 
-**Against the patent's own aberration plots (FIG. 2, read by eye ±0.01 mm).** Narrow-pencil field curves: tangential +0.016 / +0.005 / −0.026 mm at image heights 0.72 / 1.45 / 2.17 mm, against the plot's ≈ +0.02 / −0.01 / −0.06. Sagittal +0.003 / −0.015 / −0.027 against ≈ 0.00 / −0.01 / −0.03. Agreement is within about 0.015 mm, except tangential at 2.17 mm, where the plotted curve is on a steep slope. Distortion is +2.3 / +3.3 / +3.1% against ≈ +1.0 / +2.8 / +2.7%, i.e. 0.4–0.5 points higher at mid-field and 1.3 points higher at 0.72 mm. The sign, size and shape (the large tangential swing that keeps off-axis tangential MTF low) are reproduced.
+**Against the patent's own aberration plots (FIG. 2, read by eye ±0.01 mm).** Narrow-pencil field curves: tangential +0.016 / +0.005 / −0.026 mm at image heights 0.72 / 1.45 / 2.17 mm, against the plot's ≈ +0.02 / −0.01 / −0.06. Sagittal +0.003 / −0.015 / −0.027 against ≈ 0.00 / −0.01 / −0.03. Agreement is within about 0.015 mm, except tangential at 2.17 mm, where the plotted curve is on a steep slope. Distortion, referenced as Zemax does to the paraxial chief-ray height on the image surface, is +1.6 / +2.6 / +2.4% against ≈ +1.0 / +2.8 / +2.7%: within the ±0.4-point eye-read at 1.45 and 2.17 mm and 0.6 points higher at 0.72 mm. (An earlier version referenced EFL·tan θ, which ignores that the patent's image plane sits 17 µm behind paraxial focus and adds a constant +0.63% that does not vanish on axis.) The sign, size and shape (the large tangential swing that keeps off-axis tangential MTF low) are reproduced.
 
 **Diffraction limit.** Cutoff 1/(λN) = 1,143 lp/mm at 587.6 nm, F/1.489. The polychromatic diffraction-limited MTF is 0.878 / 0.758 at 111.6 / 223.2 lp/mm. Nominal centre MTF is 0.671 / 0.550, and every field and frequency is under the limit.
 
@@ -132,7 +135,7 @@ All values from `results/validation.json` and `tests/` (27 tests pass).
 
 The depth of focus is ±2λN² = ±2.61 µm. A tilt of 0.081° along the diagonal moves the 1.853 mm corner by a full depth of focus. Autofocus cannot help, because the opposite corner moves the other way.
 
-**Tilt response shape (measured).** Sensor tilt 0 → 0.2° with autofocus: the centre holds at 0.671 and the focus does not move. The worst-corner MTF falls with an exponent of 1.17 (V-shaped, first order at one corner), while the mean of the four corners (a symmetric metric) falls with an exponent of 1.99 (quadratic, zero slope at nominal). That is the reason a derivative-based linear stack misses tilt and decenter. A despace error (L1–L2 gap, 0 → 12 µm) is fully recovered by autofocus (worst corner 0.327 → 0.376, centre 0.671 → 0.623). With focus held, the worst corner collapses to 0.124.
+**Tilt response shape (measured).** Sensor tilt 0 → 0.2° with autofocus: the centre holds at 0.671 and the focus does not move. The worst-corner MTF falls with an exponent of 1.17 (V-shaped, first order at one corner), while the mean of the four corners (a symmetric metric) falls with an exponent of 1.99 (quadratic, zero slope at nominal). That is the reason a derivative-based linear stack misses tilt and decenter. A despace error (L1–L2 gap, 0 → 12 µm) is largely recovered by autofocus: focus moves 11.9 µm, the centre ends at 0.623 (−7%, inside the 90% spec) and the worst corner at 0.376 (the refocus trades a little centre for the corners). With focus held, the centre falls to 0.413 and the worst corner to 0.124.
 
 **Physical nulls and symmetry.** Barrel decenter (20 µm) changes the spec metrics by < 10⁻³ (it only shifts the image). Decenter at +limit and −limit gives the same loss (even response). Rotating every x/y perturbation pair by 90°, or mirroring x, permutes the traced corner MTFs exactly as predicted (within 0.002), which is what licenses the symmetry augmentation.
 
@@ -154,7 +157,7 @@ All on the 2,000 held-out modules unless stated. Measured yield: **80.4% ± 0.9*
 | B + its validation residuals | 83 + 1,000 | 75.9% | −4.5 pts | 0.0124 |
 | Linear (derivative) stack, footnote | 83 | 95.6% | +15.2 pts | |
 
-The limit-based RSS treats every loss as a symmetric ± spread around nominal. Here 41 terms each cost a little MTF in the same direction, so the real distribution shifts down by 0.044 and the RSS misses that shift. The second-order stack captures the shift but overstates it: it adds each term's loss independently and has no interactions or compensator coupling.
+Baseline A is the simplest report-style reading (nominal ± RSS taken as a 2σ spread). It is not a strawman in spread, since each dᵢ is the worse side, but it has no mean shift by construction; Baseline B is the fair second-order method and is the one the surrogate is judged against. The limit-based RSS treats every loss as a symmetric ± spread around nominal. Here 41 terms each cost a little MTF in the same direction, so the real distribution shifts down by 0.044 and the RSS misses that shift. The second-order stack captures the shift but overstates it: it adds each term's loss independently and has no interactions or compensator coupling.
 
 **Surrogates (trained on 3,000, selected on 1,000, scored on 2,000 held-out)**
 
@@ -167,7 +170,9 @@ The limit-based RSS treats every loss as a symmetric ± spread around nominal. H
 | Full quadratic ridge response surface (902 terms) | +0.86 pts | 0.0072 | 93.9% |
 | Gradient-boosted trees | +7.79 pts | 0.0134 | 87.8% |
 
-Learning curve (chosen model, held-out): worst-corner RMSE 0.0142 / 0.0120 / 0.0098 / 0.0055 / 0.0020 / 0.0014 / 0.0010 at 50 / 100 / 200 / 400 / 800 / 1,600 / 3,000 training modules. It matches the second-order stack's per-module accuracy (0.0124, 83 traces) at about 100–200 traced modules and is 2× better by 400. Yield errors below about 400 training modules swing by 1–3 points (small-sample noise). So the surrogate's win comes from a better model of the same physics (symmetry plus interactions), and the extra traces do not explain it: the plain neural net on the same 3,000 modules is 4× worse per module.
+Learning curve (chosen model, held-out): worst-corner RMSE 0.0142 / 0.0120 / 0.0098 / 0.0055 / 0.0020 / 0.0014 / 0.0010 at 50 / 100 / 200 / 400 / 800 / 1,600 / 3,000 training modules. It matches the second-order stack's per-module accuracy (0.0124, 83 traces) at about 100–200 traced modules and is 2× better by 400. Yield errors below about 400 training modules swing by 1–3 points (small-sample noise). So the win needs traces: at the stack's budget the two tie. What makes the traces count is the model: on the same 3,000 modules the plain neural net is 4× worse per module and the unsymmetrised hybrid 6× worse.
+
+**Intervals and the trivial yield estimator** (`surrogate_intervals` in `results/summary.json`; paired bootstrap over the 2,000 held-out modules, 4,000 resamples, 95%). Worst-corner RMSE 0.0010 (0.0009–0.0011) against 0.0124 (0.0119–0.0129) for Baseline B, a ratio of 11–14×. Pass/fail accuracy 99.4% (99.1–99.7%) against 88.0% (86.6–89.4%); paired difference +10 to +13 points. The "+0.02 pts" yield error is the surrogate predicting the pass rate of the *same* held-out modules, so it measures per-module agreement, not a better population estimate: the held-out truth itself carries ±0.9 points, and simply counting the 3,000 traced training modules gives 79.0% ± 0.7 (−1.4 ± 1.2 points from the held-out 80.4%, i.e. consistent). For the yield number alone the surrogate adds nothing over counting traces. Its measured value is per module, which is what lets it score tolerance budgets that were never traced (driver ranking, reallocation).
 
 **What sets the yield** (yield recovered if a group were perfect; surrogate on 60,000 sampled modules)
 
@@ -186,14 +191,20 @@ Three near-tied terms own 71% of the yield loss. Decenter of the strongest front
 
 | Method | Top-1 | Top-2 |
 |---|---|---|
-| Trained classifier (symmetry-augmented MLP) | **72%** | **84%** |
-| Nearest-signature lookup (143 traced signatures) | 49% | 62% |
+| Trained classifier (symmetry-augmented MLP) | **72%** (95%: 66–77%) | **84%** |
+| Nearest-signature lookup (143 traced signatures) | 49% (95%: 43–55%) | 62% |
+
+Paired bootstrap over the 247 modules: the classifier's top-1 lead is +16 to +29 points (95%). The classifier is trained on 1,800 traced single-culprit modules; the lookup uses 143 traces.
 
 No pair of culprits crossed the 35% mutual-confusion merge threshold on the training folds, so nothing was merged. The weakest classes are small-effect tilts of L3–L6 and L4 decenter, which only fail the spec with help from the background tolerances. A module whose injected culprit is barrel decenter fails for other reasons and cannot be attributed (2 cases). The lookup confuses L1 decenter with L5 decenter in half of the L1 cases, because their corner signatures are similar in shape. The classifier separates them by using the mid-field and Nyquist/2 channels.
 
 **Reallocated budget.** Tighten 2 groups (L1 decenter 2 → 1.33 µm, L2 centre thickness 3 → 2 µm). Loosen 11 groups (25 tolerances): L3–L6 tilt and L3 decenter ×2, L2 tilt, L4 decenter and all spacers ×1.5, L2/L6 decenter ×1.25, barrel decenter ×2. The cost proxy falls 20.3% (18.8% excluding the free barrel-decenter loosening). Surrogate yield goes from 79.2% to 79.7% (target ≥ current + 0.5).
 
-**Verification (fresh, independent ray-traced Monte Carlo, seed 3, 3,000 modules on the reallocated budget):** yield **79.2% ± 0.7**. The current budget measured 79.2% ± 0.5 over all 6,000 modules, a difference of **+0.0 ± 0.9 points**, and 80.4% ± 0.9 on its 2,000 held-out modules, a difference of −1.2 ± 1.2 points. Within the resolution of these Monte Carlo sizes (about 1 point), the reallocated budget holds yield while loosening 25 of 41 tolerances. The surrogate predicted 79.7%, inside the verified interval. To claim a hold tighter than ±1 point would take roughly 4× more verification modules.
+**Verification (fresh, independent ray-traced Monte Carlo, seed 3, 3,000 modules on the reallocated budget):** yield **79.2% ± 0.7**. The current budget measured 79.2% ± 0.5 over all 6,000 modules, a difference of +0.0 ± 0.9 points, and 80.4% ± 0.9 on its 2,000 held-out modules, a difference of −1.2 ± 1.2 points.
+
+**Paired verification (common random numbers, `verification.paired`).** The 2,000 held-out draws of the main run (never used to train, select or reallocate) were re-traced with the reallocated limits, so each module is compared with itself. New budget 79.55% against 80.4%: **−0.85 ± 0.68 points** (95% interval −2.2 to +0.5). 83 modules flip to pass and 100 flip to fail. The surrogate had predicted +0.5 points (79.2% → 79.7%), so it was about 1.4 points optimistic on the change, while still inside the unpaired verification interval.
+
+Reading: the reallocated budget holds yield to within about 2 points while loosening 25 of 41 tolerances (cost proxy −20%). The most likely outcome is a small loss of about 1 point, not the +0.5 the surrogate targeted. Closing that gap on a real line would mean re-running the reallocation with a margin (target current + 1.5 points) and verifying again.
 
 ## 8. Limitations
 

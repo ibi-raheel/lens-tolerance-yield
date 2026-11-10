@@ -94,14 +94,16 @@ def cmd_run(a):
                baseline_A_limit_rss=yA, baseline_B_quadratic=yB,
                drivers_recovered_pts=dict(drivers), reallocated_csv=str(new_csv),
                reallocated_yield_surrogate=yk,
-               next_step=f"verify: lensyield run --tolerances {new_csv} (fresh Monte Carlo)")
+               next_step=f"verify: lensyield run --tolerances {new_csv} --seed {a.seed + 1} (fresh, independent "
+                         f"Monte Carlo; the same seed reuses these draws and is a paired check, not an independent one)")
     (out / "result.json").write_text(json.dumps(res, indent=1))
     print(f"yield {100 * p.mean():.1f}% +/- {100 * se(p.mean(), len(p)):.1f} (n={len(p)})")
     print(f"baseline A (limit RSS) {100 * yA:.1f}%   baseline B (2nd-order) {100 * yB:.1f}%")
     print("top drivers (yield points recovered if perfect):")
     for g, d in drivers[:5]:
         print(f"  {g:22s} {d:+.1f}")
-    print(f"reallocated table -> {new_csv} (surrogate yield {100 * yk:.1f}%); verify with a fresh run")
+    print(f"reallocated table -> {new_csv} (surrogate yield {100 * yk:.1f}%); verify with a fresh run "
+          f"(--seed {a.seed + 1})")
 
 
 def cmd_diagnose(a):

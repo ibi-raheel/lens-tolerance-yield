@@ -201,6 +201,48 @@ def surrogates(out, seeds=(0, 1, 2)):
     return out, best, (best_models, best_resid)
 
 
+def surrogate_intervals(out, seeds=(0, 1, 2), n_boot=4000):
+    """95% paired-bootstrap intervals for the chosen surrogate against Baseline B on the
+    held-out modules, plus the trivial yield estimator: count the traced training modules."""
+    mc, U, Y, st, thr = _data()
+    n = len(U); a, b = SPLIT
+    tr, va, ho = slice(0, a), slice(a, b), slice(b, n)
+    name = out["surrogates"]["chosen"]
+    ms = [SU.make(name, st, seed=sd).fit(U[tr], Y[tr]) for sd in seeds]
+    P = _ens_predict(ms, U[ho]); R = Y[va] - _ens_predict(ms, U[va])
+    PB = st.predict_B(U[ho])
+    truth = passes(Y[ho], thr)
+    k = S.criteria(Y[ho])[1]
+    eS = (S.criteria(P)[1] - k) ** 2; eB = (S.criteria(PB)[1] - k) ** 2
+    okS = (passes(P, thr) == truth).astype(float); okB = (passes(PB, thr) == truth).astype(float)
+    rng = np.random.default_rng(9)
+    idx = rng.integers(0, len(k), (n_boot, len(k)))
+    ci = lambda x: [float(np.percentile(x, 2.5)), float(np.percentile(x, 97.5))]
+    rm_s = np.sqrt(eS[idx].mean(1)); rm_b = np.sqrt(eB[idx].mean(1))
+    # yield: the surrogate predicts the pass rate of these same held-out modules (paired);
+    # counting the traced training modules estimates the population yield (unpaired).
+    ycal = calibrated_yield(P, R, thr)
+    ttr = passes(Y[tr], thr); ytr = float(ttr.mean())
+    out["surrogate_intervals"] = dict(
+        model=name, n_heldout=int(len(k)),
+        corner_rmse=dict(surrogate=float(np.sqrt(eS.mean())), B=float(np.sqrt(eB.mean())),
+                         surrogate_ci=ci(rm_s), B_ci=ci(rm_b), ratio_B_over_surrogate_ci=ci(rm_b / rm_s)),
+        pass_fail_accuracy=dict(surrogate=float(okS.mean()), B=float(okB.mean()),
+                                surrogate_ci=ci(okS[idx].mean(1)), B_ci=ci(okB[idx].mean(1)),
+                                difference_ci=ci((okS - okB)[idx].mean(1))),
+        yield_=dict(heldout_traced=float(truth.mean()), heldout_traced_se=se(truth.mean(), len(truth)),
+                    surrogate_on_same_modules=ycal,
+                    counting_3000_training_traces=ytr, counting_se=se(ytr, int(ttr.size)),
+                    counting_minus_heldout_pts=100 * (ytr - float(truth.mean())),
+                    counting_minus_heldout_se_pts=100 * math.sqrt(se(ytr, int(ttr.size)) ** 2 + se(truth.mean(), len(truth)) ** 2)),
+        reading="For the population yield alone, counting the 3,000 traced training modules is as good as the "
+                "surrogate (both within sampling noise of the held-out truth). The surrogate's measured win is per "
+                "module: worst-corner error and pass/fail calls on modules it never saw, which is what lets it "
+                "score untraced budgets (drivers, reallocation).",
+        method="paired bootstrap over the 2,000 held-out modules, 4,000 resamples, 95%")
+    return out
+
+
 def _ens_predict(models, U):
     return np.mean([m.predict(U) for m in models], axis=0)
 
@@ -393,6 +435,15 @@ def diagnosis(out, seed=0):
             cm[labs.index(t), labs.index(p)] += 1
         return cm.tolist()
     counts = {l: int((ym[te_fail] == l).sum()) for l in labs}
+    # paired bootstrap over the held-out failing modules (95% intervals)
+    c_ml = np.array([p == t for p, t in zip(ml_pred, ym[te_fail])], float)
+    c_lk = np.array(look1, float)
+    brng = np.random.default_rng(7)
+    bs = brng.integers(0, len(c_ml), (4000, len(c_ml)))
+    ci = lambda a: [float(np.percentile(a, 2.5)), float(np.percentile(a, 97.5))]
+    diag_ci = dict(model_top1=ci(c_ml[bs].mean(1)), lookup_top1=ci(c_lk[bs].mean(1)),
+                   top1_difference=ci((c_ml - c_lk)[bs].mean(1)), n=int(len(c_ml)),
+                   method="paired bootstrap over held-out failing modules, 4,000 resamples, 95%")
     out["diagnosis"] = dict(
         n_train=int(len(tr)), n_test=int(len(te)), n_test_failing=int(len(te_fail)),
         merged=[v for v in names.values() if len(v) > 1],
@@ -401,6 +452,7 @@ def diagnosis(out, seed=0):
         lookup=dict(top1=float(np.mean(look1)), top2=float(np.mean(look2)), confusion=confusion(look_pred),
                     library_traces=int(len(Sg) + 1)),
         chance_top1=float(max(counts.values()) / max(1, len(te_fail))),
+        intervals=diag_ci,
         method="classifier: MLP on the 36 through-field MTF changes (9 fields x 2 freqs x T/S), "
                "trained on the 8 symmetry images of every training module; "
                "lookup: least-squares fit to a traced signature library (each culprit at 3x its limit, "
@@ -513,6 +565,22 @@ def verification(out):
         difference_vs_full_se_pts=100 * math.sqrt(se(pv.mean(), len(pv)) ** 2 + se(allp.mean(), len(allp)) ** 2),
         note="fresh, independent ray-traced Monte Carlo (seed 3) on the reallocated budget vs the "
              "held-out modules of the current budget")
+    if (RUNS / "verify_paired.npz").exists():
+        z = _load("verify_paired.npz")
+        assert np.allclose(z["U"], U[b:b + len(z["U"])])           # same draws, new limits
+        Yp = S.field_outputs(z["mtf"]); Yp[~z["ok"]] = 0
+        pn = passes(Yp, thr); pc = passes(Y[b:b + len(pn)], thr)
+        d = pn.astype(float) - pc.astype(float)
+        n_ = len(d)
+        out["verification"]["paired"] = dict(
+            n=int(n_), new_budget_yield=float(pn.mean()), current_budget_yield=float(pc.mean()),
+            difference_pts=100 * float(d.mean()), difference_se_pts=100 * float(d.std(ddof=1) / math.sqrt(n_)),
+            difference_ci95_pts=[100 * float(d.mean() - 1.96 * d.std(ddof=1) / math.sqrt(n_)),
+                                 100 * float(d.mean() + 1.96 * d.std(ddof=1) / math.sqrt(n_))],
+            flipped_to_pass=int(((~pc) & pn).sum()), flipped_to_fail=int((pc & ~pn).sum()),
+            untraceable=int((~z["ok"]).sum()),
+            note="common random numbers: the 2,000 held-out draws of the main run (never used to train or "
+                 "select) re-traced with the reallocated limits; paired difference vs their current-budget traces")
     return out
 
 
@@ -591,6 +659,8 @@ def main(stages):
             reallocation(out)
         elif s == "verify":
             verification(out)
+        elif s == "intervals":
+            surrogate_intervals(out)
         elif s == "scrubs":
             scrub_curves(out)
         elif s == "export":
