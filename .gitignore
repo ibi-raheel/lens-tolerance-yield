@@ -1,4 +1,4 @@
-data/runs/
+data/runs/*.log
 out/
 __pycache__/
 *.pyc
