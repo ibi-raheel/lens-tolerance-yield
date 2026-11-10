@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { loadData, type Data } from "./data";
+import { REPO, loadData, type Data } from "./data";
 import { S0Cover } from "./sections/S0Cover";
 import { S1Lens } from "./sections/S1Lens";
 import { S2Focus } from "./sections/S2Focus";
@@ -104,6 +104,7 @@ export default function App() {
         )}
         <footer className="colophon">
           <span className="more-work">More work at <a href="https://ibiraheel.com">ibiraheel.com</a></span>
+          <span><a href={REPO}>Code on GitHub</a></span>
           <span>Lens: US 9,435,983 B2, embodiment 1 (public patent text). Modules: physics simulation. Ray tracing: Optiland (MIT).</span>
         </footer>
       </div>

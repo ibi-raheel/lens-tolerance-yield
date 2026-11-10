@@ -1,10 +1,25 @@
-data/runs/*.log
-out/
+# Python
+.venv/
+venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Node / web build
+node_modules/
 web/node_modules/
+dist/
 web/dist/
+*.tsbuildinfo
+
+# Simulation outputs. The ray-traced runs already in data/runs/ stay tracked
+# (each under 5 MB) so the analysis re-runs without re-tracing; new runs are ignored.
+data/runs/
+out/
+*_big.npz
+*.npz.tmp
+
+# OS / tools
 .DS_Store
 .vercel
 .impeccable/
