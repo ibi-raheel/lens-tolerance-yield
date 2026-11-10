@@ -85,7 +85,7 @@ export function S0Cover({ data }: { data: Data }) {
           <div>
             <dt>Answer</dt>
             <dd>
-              Three tolerances own <span className="big mark">{Math.floor(100 * top3)}%</span> of the yield loss. The standard RSS estimate overstates yield by{" "}
+              Three tolerances own <span className="big mark">{Math.round(100 * top3)}%</span> of the yield loss. The standard RSS estimate overstates yield by{" "}
               <span className="big mark">{Math.round(rssGap)} points</span>.
             </dd>
           </div>

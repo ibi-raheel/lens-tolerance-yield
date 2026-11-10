@@ -9,11 +9,11 @@ A camera module's tolerance budget is set part by part: lens decenter and tilt, 
 
 ## What it does
 The page walks through the answer in order:
-1. **The question and the measured answer.** Three near-tied tolerances own 71% of the yield loss. The standard RSS estimate overstates yield by 11 points. A reallocated budget loosens 25 of 41 tolerances, and re-tracing the same held-out modules on it shows yield held to within about 2 points (−0.9 ± 0.7 points, paired).
+1. **The question and the measured answer.** Three near-tied tolerances own 72% of the yield loss. The standard RSS estimate overstates yield by 11 points. A reallocated budget loosens 25 of 41 tolerances, and re-tracing the same held-out modules on it shows yield held to within about 2 points (−0.9 ± 0.7 points, paired).
 2. **A real lens, rebuilt.** The published prescription ray-traced. EFL, TTL, entrance pupil and element focal lengths match the patent within 0.6%, and its field curves match the patent's own plots.
 3. **Autofocus fixes spacing, not tilt.** Refocus recovers a 12 µm despace (centre MTF 0.62 with refocus against 0.41 without, so the module still passes). Under sensor tilt the corners split and focus can't recover them (hand calc: 0.08° = one depth of focus at the corner).
 4. **6,000 simulated modules.** The worst-corner MTF distribution against the spec: measured yield 80.4% ± 0.9 on held-out modules, against 91.5% from the limit-based RSS and 75.0% from a second-order stack.
-5. **What sets the yield, and the AI against the stacks.** Driver ranking (spot-checked by direct ray trace). On held-out modules the surrogate's worst-corner MTF error is 12× smaller than the second-order stack's (95% interval 11–14×) and its pass/fail call is right 99.4% of the time against 88%. For the yield number alone it is no better than counting the traced modules; its value is scoring budgets that were never traced.
+5. **What sets the yield, and the AI against the stacks.** Driver ranking (spot-checked by direct ray trace). On held-out modules the surrogate's worst-corner MTF error is 13× smaller than the second-order stack's (95% interval 11–14×) and its pass/fail call is right 99.4% of the time against 88%. For the yield number alone it is no better than counting the traced modules; its value is scoring budgets that were never traced.
 6. **Which part is out?** From a failing module's through-field MTF, the classifier names the culprit 72% top-1 / 84% top-2, against 49% / 62% for a signature lookup.
 7. **The solution.** Current vs reallocated tolerance table, the fresh-Monte-Carlo yield, and the CLI to run it on another design.
 

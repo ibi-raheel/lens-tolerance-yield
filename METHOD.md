@@ -185,7 +185,7 @@ Learning curve (chosen model, held-out): worst-corner RMSE 0.0142 / 0.0120 / 0.0
 | Spacing (5 gaps) | +2.0 pts | 6% | 0.13 |
 | L2 thickness | +1.5 pts | 4% | 0.08 |
 
-Three near-tied terms own 71% of the yield loss. Decenter of the strongest front element (L1) and of L5, which sits where the off-axis beams are widest, cost as much as image-plane tilt. Tilts of L3–L6 and barrel decenter cost almost nothing.
+Three near-tied terms own 72% of the yield loss. Decenter of the strongest front element (L1) and of L5, which sits where the off-axis beams are widest, cost as much as image-plane tilt. Tilts of L3–L6 and barrel decenter cost almost nothing.
 
 **Diagnosis (247 held-out failing modules, 21 culprit classes, chance 13%)**
 

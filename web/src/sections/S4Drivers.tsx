@@ -74,7 +74,7 @@ export function S4Drivers({ data }: { data: Data }) {
       title="What actually sets the yield"
       copy={
         <>
-          L1 decenter, image-plane tilt and L5 decenter own <b>{Math.floor(100 * share)}% of the yield loss</b>, about 8 points each. A direct re-trace with all three perfect wins back{" "}
+          L1 decenter, image-plane tilt and L5 decenter own <b>{Math.round(100 * share)}% of the yield loss</b>, about 8 points each. A direct re-trace with all three perfect wins back{" "}
           <b>{signed(spot3.traced_recovered_pts)} ± {spot3.traced_se_pts.toFixed(1)} points</b>; the surrogate predicted {signed(spot3.surrogate_recovered_pts)}.
         </>
       }

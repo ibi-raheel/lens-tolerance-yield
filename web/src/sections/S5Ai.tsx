@@ -93,7 +93,7 @@ export function S5Ai({ data }: { data: Data }) {
       title="The AI vs the stack"
       copy={
         <>
-          On modules it never saw, the trained surrogate predicts worst-corner MTF <b>{Math.floor(ratio)}× better</b> than the second-order stack (95%: {Math.floor(r0)}-{Math.round(r1)}×) and calls pass/fail right on{" "}
+          On modules it never saw, the trained surrogate predicts worst-corner MTF <b>{Math.round(ratio)}× better</b> than the second-order stack (95%: {Math.round(r0)}-{Math.round(r1)}×) and calls pass/fail right on{" "}
           <b>{pct(si.pass_fail_accuracy.surrogate)} vs {pct(si.pass_fail_accuracy.B)}</b>. It ties the stack at about 100 traced modules, and for the yield number alone, counting traced modules does as well; its job is scoring budgets that were never traced.
         </>
       }
